@@ -9,23 +9,11 @@ function audioConverter() {
     processing: false,
     chunkSize: 120,
     chunkLimit: 0,
-    apiKey: '',
-    googleApiKey: '',
     currentStatus: 'Ready to process audio',
     currentChunk: -1,
 
     async init() {
       console.log('Arabic Audio Converter initialized');
-      await this.loadConfig();
-    },
-
-    async loadConfig() {
-      if (window.CONFIG) {
-        this.apiKey = window.CONFIG.OPENAI_API_KEY;
-        this.googleApiKey = window.CONFIG.GOOGLE_CLOUD_API_KEY;
-      } else {
-        console.warn('API key not found. Please create a config.js file with your API key.');
-      }
     },
 
     isValidMediaFile(file) {
@@ -291,9 +279,8 @@ function audioConverter() {
         formData.append('file', chunk.blob, `chunk_${chunkIndex}.wav`);
         formData.append('model', 'whisper-1');
 
-        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        const response = await fetch('/api/transcribe', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${this.apiKey}` },
             body: formData
         });
 
@@ -309,11 +296,10 @@ function audioConverter() {
 
     async translateChunk(text, chunkIndex) {
         console.log(`🔄 Translating chunk ${chunkIndex + 1}...`);
-        const url = `https://translation.googleapis.com/language/translate/v2?key=${this.googleApiKey}&q=${encodeURI(text)}&target=en&source=ar`;
-
-        const response = await fetch(url, {
+        const response = await fetch('/api/translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, target: 'en', source: 'ar' })
         });
 
         if (!response.ok) {
@@ -334,10 +320,6 @@ function audioConverter() {
       console.log(`💾 Size: ${chunkSizeMB} MB`);
       
       try {
-        if (!this.apiKey || !this.googleApiKey) {
-          throw new Error('API key not found. Please check your config.js file.');
-        }
-        
         this.currentStatus = `Transcribing Arabic audio for chunk ${chunkIndex + 1}...`;
         const arabicText = await this.transcribeChunk(chunk, chunkIndex);
         let englishText = '';
@@ -659,21 +641,12 @@ function audioConverter() {
       try {
         console.log(`🎤 Converting text to speech using OpenAI TTS: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
         
-        if (!this.apiKey) {
-          throw new Error('OpenAI API key not found. Please check your config.js file.');
-        }
-        
-        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        const response = await fetch('/api/tts', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'tts-1-hd',
             input: text,
             voice: 'onyx',
-            response_format: 'mp3',
             speed: 1.0
           })
         });
