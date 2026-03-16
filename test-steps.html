@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arabic Converter Step Testing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .step {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            padding: 15px;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .progress {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 5px;
+        }
+        .chunk-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Arabic Audio Converter - Step by Step Testing</h1>
+    
+    <div class="container">
+        <h2>Test File Information</h2>
+        <input type="file" id="testFile" accept="audio/*,video/*">
+        <div id="fileInfo" class="info"></div>
+    </div>
+
+    <div class="container">
+        <div class="step">
+            <h3>Step 1: Audio File Analysis</h3>
+            <button id="analyzeBtn" onclick="analyzeAudio()" disabled>Analyze Audio File</button>
+            <div id="audioAnalysis" class="progress"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Audio Splitting Test</h3>
+            <div class="info">
+                <label>Chunk Size (seconds): <input type="number" id="chunkSize" value="120" min="30" max="600"></label>
+            </div>
+            <button id="splitBtn" onclick="testAudioSplitting()" disabled>Test Audio Splitting</button>
+            <div id="splittingResults" class="progress"></div>
+            <div id="chunkDetails"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: OpenAI Transcription Test</h3>
+            <button id="transcriptionBtn" onclick="testTranscription()" disabled>Test Transcription (First Chunk)</button>
+            <div id="transcriptionResults" class="progress"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Google Cloud Translation Test</h3>
+            <button id="translationBtn" onclick="testTranslation()" disabled>Test Translation (First Chunk)</button>
+            <div id="translationResults" class="progress"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 5: Text-to-Speech Audio Generation Test</h3>
+            <button id="ttsBtn" onclick="testTextToSpeech()" disabled>Test English Audio Generation</button>
+            <div id="ttsResults" class="progress"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 6: Full Pipeline Test (Streamlined)</h3>
+            <div class="info">
+                <label>Chunk Limit (0 = all chunks): <input type="number" id="chunkLimit" value="0" min="0" max="20"></label>
+                <br><small>Limit chunks for testing (useful for large files)</small>
+            </div>
+            <button id="fullTestBtn" onclick="runFullTest()">Run Full Pipeline Test</button>
+            <div id="fullTestResults" class="progress"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 7: Direct Audio Generation Test</h3>
+            <div class="info">
+                <label>Text to convert to audio: <br>
+                <textarea id="directTextInput" rows="3" cols="50" placeholder="Enter English text here...">Hello, this is a test of direct audio generation without needing transcription or translation.</textarea></label>
+            </div>
+            <button id="directAudioBtn" onclick="testDirectAudioGeneration()">Generate Audio from Text</button>
+            <div id="directAudioResults" class="progress"></div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="converter.js"></script>
+    <script>
+        let currentFile = null;
+        let chunks = [];
+        let audioContext = null;
+        let converter = null;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            converter = audioConverter();
+            await converter.init();
+        });
+        
+        document.getElementById('testFile').addEventListener('change', function(e) {
+            currentFile = e.target.files[0];
+            if (currentFile) {
+                updateFileInfo();
+                enableStep1();
+            }
+        });
+        
+        function updateFileInfo() {
+            const info = document.getElementById('fileInfo');
+            const sizeMB = (currentFile.size / 1024 / 1024).toFixed(2);
+            const estimatedDuration = Math.round(currentFile.size / 1024 / 1024);
+            
+            info.innerHTML = `
+                <strong>File:</strong> ${currentFile.name}<br>
+                <strong>Size:</strong> ${sizeMB} MB<br>
+                <strong>Type:</strong> ${currentFile.type}<br>
+                <strong>Estimated Duration:</strong> ~${estimatedDuration} minutes
+            `;
+        }
+        
+        function enableStep1() {
+            document.getElementById('analyzeBtn').disabled = false;
+        }
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            element.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+        
+        async function analyzeAudio() {
+            const analysisDiv = document.getElementById('audioAnalysis');
+            analysisDiv.innerHTML = '';
+            
+            try {
+                log('audioAnalysis', 'Starting audio analysis...');
+                
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                log('audioAnalysis', 'Reading file...');
+                const arrayBuffer = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(currentFile);
+                });
+                
+                log('audioAnalysis', 'Decoding audio data...');
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                const duration = audioBuffer.duration;
+                const sampleRate = audioBuffer.sampleRate;
+                const channels = audioBuffer.numberOfChannels;
+                
+                log('audioAnalysis', `✓ Audio decoded successfully!`, 'success');
+                log('audioAnalysis', `Duration: ${duration.toFixed(2)} seconds (${Math.floor(duration/60)}:${(duration%60).toFixed(0).padStart(2, '0')})`);
+                log('audioAnalysis', `Sample Rate: ${sampleRate} Hz`);
+                log('audioAnalysis', `Channels: ${channels}`);
+                
+                document.getElementById('splitBtn').disabled = false;
+                
+            } catch (error) {
+                log('audioAnalysis', `✗ Error analyzing audio: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAudioSplitting() {
+            const splittingDiv = document.getElementById('splittingResults');
+            const chunkDetailsDiv = document.getElementById('chunkDetails');
+            splittingDiv.innerHTML = '';
+            chunkDetailsDiv.innerHTML = '';
+            chunks = [];
+            
+            try {
+                const chunkSize = parseInt(document.getElementById('chunkSize').value);
+                log('splittingResults', `Starting audio splitting using converter.js (${chunkSize}s chunks)...`);
+                
+                converter.chunkSize = chunkSize;
+                
+                chunks = await converter.splitAudioIntoChunks(currentFile);
+                
+                let totalChunkSize = 0;
+                chunks.forEach((chunk, index) => {
+                    const chunkMB = (chunk.size / 1024 / 1024).toFixed(2);
+                    totalChunkSize += chunk.size;
+                    
+                    const chunkDiv = document.createElement('div');
+                    chunkDiv.className = 'chunk-info';
+                    chunkDiv.innerHTML = `
+                        Chunk ${index + 1}: ${chunk.startTime.toFixed(1)}s - ${chunk.endTime.toFixed(1)}s 
+                        Duration: ${chunk.duration.toFixed(1)}s | Size: ${chunkMB} MB
+                    `;
+                    chunkDetailsDiv.appendChild(chunkDiv);
+                });
+                
+                const totalMB = (totalChunkSize / 1024 / 1024).toFixed(2);
+                
+                log('splittingResults', `✓ Created ${chunks.length} chunks using converter.js`, 'success');
+                log('splittingResults', `Total chunk size: ${totalMB} MB`);
+                
+                document.getElementById('transcriptionBtn').disabled = false;
+                
+            } catch (error) {
+                log('splittingResults', `✗ Error splitting audio: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testTranscription() {
+            const transcriptionDiv = document.getElementById('transcriptionResults');
+            transcriptionDiv.innerHTML = '';
+            
+            if (chunks.length === 0) {
+                log('transcriptionResults', '✗ No chunks available. Run audio splitting first.', 'error');
+                return;
+            }
+            
+            try {
+                log('transcriptionResults', 'Testing OpenAI Whisper API with first chunk using converter.js...');
+                const firstChunk = chunks[0];
+                
+                const arabicText = await converter.transcribeChunk(firstChunk, 0);
+                
+                log('transcriptionResults', '✓ Whisper transcription successful!', 'success');
+                log('transcriptionResults', `Arabic text: "${arabicText}"`);
+                
+                window.testArabicText = arabicText;
+                document.getElementById('translationBtn').disabled = false;
+                
+            } catch (error) {
+                log('transcriptionResults', `✗ Processing error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTranslation() {
+            const translationDiv = document.getElementById('translationResults');
+            translationDiv.innerHTML = '';
+            
+            if (!window.testArabicText) {
+                log('translationResults', '✗ No Arabic text available. Run transcription first.', 'error');
+                return;
+            }
+            
+            try {
+                log('translationResults', 'Testing Google Translate API with first chunk text using converter.js...');
+                
+                const englishText = await converter.translateChunk(window.testArabicText, 0);
+                
+                log('translationResults', '✓ Google translation successful!', 'success');
+                log('translationResults', `English text: "${englishText}"`);
+                
+                window.testEnglishText = englishText;
+                document.getElementById('ttsBtn').disabled = false;
+                
+            } catch (error) {
+                log('translationResults', `✗ Processing error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testTextToSpeech() {
+            const ttsDiv = document.getElementById('ttsResults');
+            ttsDiv.innerHTML = '';
+            
+            const testText = window.testEnglishText || 'Hello, this is a test of the text-to-speech functionality.';
+            
+            try {
+                log('ttsResults', 'Testing OpenAI Text-to-Speech using converter.js...');
+                log('ttsResults', `Text to convert: "${testText}"`);
+                
+                const audioBlob = await converter.textToSpeechBlob(testText);
+                
+                if (audioBlob && audioBlob.size > 0) {
+                    log('ttsResults', '✓ Audio generation successful!', 'success');
+                    log('ttsResults', `Audio size: ${(audioBlob.size / 1024).toFixed(2)} KB`);
+                    
+                    const url = URL.createObjectURL(audioBlob);
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = url;
+                    downloadLink.download = 'test_english_audio.mp3';
+                    downloadLink.textContent = '📥 Download Test Audio';
+                    ttsDiv.appendChild(downloadLink);
+                    
+                    const playButton = document.createElement('button');
+                    playButton.textContent = '▶️ Play Audio';
+                    playButton.onclick = () => {
+                        const audio = new Audio(url);
+                        audio.play();
+                    };
+                    ttsDiv.appendChild(playButton);
+                    
+                    document.getElementById('fullTestBtn').disabled = false;
+                    
+                } else {
+                    throw new Error('Generated audio blob is empty or invalid');
+                }
+                
+            } catch (error) {
+                log('ttsResults', `✗ TTS error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runFullTest() {
+            const fullTestDiv = document.getElementById('fullTestResults');
+            fullTestDiv.innerHTML = '';
+            
+            try {
+                log('fullTestResults', 'Starting full pipeline test using converter.js...');
+                
+                if (!currentFile) {
+                    throw new Error('No file selected. Please select an audio file first.');
+                }
+                
+                const chunkLimit = parseInt(document.getElementById('chunkLimit').value) || 0;
+                
+                converter.file = currentFile;
+                converter.chunkLimit = chunkLimit;
+                
+                const originalConsoleLog = console.log;
+                console.log = function(...args) {
+                    log('fullTestResults', args.join(' '));
+                    originalConsoleLog.apply(console, args);
+                };
+                
+                await converter.processAudio();
+                
+                console.log = originalConsoleLog;
+                
+                log('fullTestResults', '\n=== RESULTS ===');
+                log('fullTestResults', `✓ Processing completed!`, 'success');
+                log('fullTestResults', `Arabic text (${converter.finalText.arabic.length} chars): "${converter.finalText.arabic.substring(0, 100)}${converter.finalText.arabic.length > 100 ? '...' : ''}"`);
+                log('fullTestResults', `English text (${converter.finalText.english.length} chars): "${converter.finalText.english.substring(0, 100)}${converter.finalText.english.length > 100 ? '...' : ''}"`);
+                
+                if (converter.finalText.english) {
+                    log('fullTestResults', '\n=== GENERATING FINAL ENGLISH AUDIO ===');
+                    const audioBlob = await converter.generateEnglishAudio();
+                    
+                    if (audioBlob) {
+                        log('fullTestResults', `✓ Final English audio generated: ${(audioBlob.size / 1024).toFixed(2)} KB`, 'success');
+                        
+                        const url = URL.createObjectURL(audioBlob);
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = url;
+                        downloadLink.download = 'full_pipeline_english_audio.mp3';
+                        downloadLink.textContent = '📥 Download Complete English Audio';
+                        fullTestDiv.appendChild(downloadLink);
+                        
+                        const playButton = document.createElement('button');
+                        playButton.textContent = '▶️ Play Audio';
+                        playButton.onclick = () => {
+                            const audio = new Audio(url);
+                            audio.play();
+                        };
+                        fullTestDiv.appendChild(playButton);
+                    }
+                }
+                
+            } catch (error) {
+                log('fullTestResults', `✗ Full test error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testDirectAudioGeneration() {
+            const directAudioDiv = document.getElementById('directAudioResults');
+            directAudioDiv.innerHTML = '';
+            
+            const textInput = document.getElementById('directTextInput');
+            const text = textInput.value.trim();
+            
+            if (!text) {
+                log('directAudioResults', '✗ Please enter some text to convert to audio.', 'error');
+                return;
+            }
+            
+            try {
+                log('directAudioResults', 'Testing direct audio generation from text...');
+                log('directAudioResults', `Text: "${text}"`);
+                
+                const audioBlob = await converter.generateAudioFromText(text, 'direct_test_audio.mp3');
+                
+                if (audioBlob && audioBlob.size > 0) {
+                    log('directAudioResults', '✓ Direct audio generation successful!', 'success');
+                    log('directAudioResults', `Audio size: ${(audioBlob.size / 1024).toFixed(2)} KB`);
+                    
+                    const url = URL.createObjectURL(audioBlob);
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = url;
+                    downloadLink.download = 'direct_test_audio.mp3';
+                    downloadLink.textContent = '📥 Download Direct Audio';
+                    directAudioDiv.appendChild(downloadLink);
+                    
+                    const playButton = document.createElement('button');
+                    playButton.textContent = '▶️ Play Audio';
+                    playButton.onclick = () => {
+                        const audio = new Audio(url);
+                        audio.play();
+                    };
+                    directAudioDiv.appendChild(playButton);
+                    
+                    log('directAudioResults', '✓ You can now skip all previous steps and generate audio directly!', 'success');
+                } else {
+                    throw new Error('Generated audio blob is empty or invalid');
+                }
+                
+            } catch (error) {
+                log('directAudioResults', `✗ Direct audio generation error: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

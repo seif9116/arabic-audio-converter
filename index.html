@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arabic Audio Converter - Seif's Site</title>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../styles/links.css">
+  <link rel="stylesheet" href="../../styles/mobile.css">
+  
+  <style>
+    [x-cloak] {
+      display: none !important;
+    }
+
+    .upload-area {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 3rem;
+      text-align: center;
+      background: #f9fafb;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .upload-area:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
+    }
+
+    .upload-area.dragover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #e5e7eb;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #3b82f6;
+      transition: width 0.3s ease;
+    }
+
+    .chunk-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+
+    .chunk-status {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      margin-left: auto;
+    }
+
+    .chunk-status.pending {
+      background: #d1d5db;
+    }
+
+    .chunk-status.processing {
+      background: #3b82f6;
+      animation: pulse 1.5s infinite;
+    }
+
+    .chunk-status.success {
+      background: #10b981;
+    }
+
+    .chunk-status.error {
+      background: #ef4444;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .spinner {
+      border: 2px solid #f3f4f6;
+      border-top: 2px solid #3b82f6;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .transcript-box {
+      background: #f9fafb;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .transcript-box.arabic {
+      direction: rtl;
+      text-align: right;
+    }
+
+    .settings-panel {
+      background: #f9fafb;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #059669;
+    }
+
+    .btn-tertiary {
+      background: #8b5cf6;
+      color: white;
+    }
+
+    .btn-tertiary:hover:not(:disabled) {
+      background: #7c3aed;
+    }
+
+    .btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    h1 a {
+      text-decoration: none;
+      color: #333;
+    }
+
+    h1 a:visited {
+      color: #333;
+    }
+
+    h1 a:hover {
+      color: #333;
+    }
+  </style>
+</head>
+
+<body x-data="audioConverter()" x-init="init()">
+  <div id="content-wrapper">
+    <header>
+      <h1><a href="../../">Seif Eldin Metwally</a></h1>
+      <nav>
+        <a href="../../">Home</a>
+        <a href="../../#/blog">Blog</a>
+      </nav>
+    </header>
+    
+    <main>
+      <hr>
+      <h2 style="text-align: center; margin-bottom: 2rem;">Arabic Audio Converter</h2>
+      
+
+      <!-- File Upload -->
+      <div class="upload-area" 
+           @click="$refs.fileInput.click()"
+           @dragover.prevent="$el.classList.add('dragover')"
+           @dragleave.prevent="$el.classList.remove('dragover')"
+           @drop.prevent="handleDrop($event)">
+        
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <svg style="width: 48px; height: 48px; margin-bottom: 1rem; color: #6b7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          
+          <p style="margin-bottom: 0.5rem; font-weight: 500;">
+            <span style="color: #3b82f6;">Click to upload</span> your Arabic audio or video file
+          </p>
+          <p style="font-size: 0.875rem; color: #6b7280;">
+            Any audio or video format, any size (will be chunked automatically)
+          </p>
+          
+          <template x-if="file">
+            <div style="margin-top: 1rem; text-align: center;">
+              <p style="color: #3b82f6; font-weight: 500;" x-text="file ? file.name : 'No file'"></p>
+              <p style="font-size: 0.875rem; color: #6b7280;">
+                Size: <span x-text="file ? (file.size / 1024 / 1024).toFixed(2) : '0'"></span> MB | 
+                Est. Duration: ~<span x-text="file ? Math.round(file.size / 1024 / 1024) : '0'"></span> minutes
+              </p>
+            </div>
+          </template>
+          
+          <!-- Debug info -->
+          <div style="margin-top: 1rem; font-size: 0.75rem; color: #888;">
+            Debug: File exists: <span x-text="!!file"></span> | 
+            File name: <span x-text="file ? file.name : 'none'"></span>
+          </div>
+        </div>
+        
+        <input type="file" x-ref="fileInput" @change="handleFileUpload($event)" accept="audio/*,video/*,.mp4,.mov,.avi,.mkv,.webm,.m4v,.3gp" style="display: none;">
+      </div>
+
+      <!-- Process Button -->
+      <div style="text-align: center; margin: 2rem 0;">
+        <button @click="processAudio" 
+                :disabled="!file || processing" 
+                class="btn btn-primary">
+          <template x-if="processing">
+            <div>
+              <div class="spinner"></div>
+              <span x-text="getProcessingStatus()"></span>
+            </div>
+          </template>
+          <template x-if="!processing">
+            <div>
+              <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M7 7h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9a2 2 0 012-2z"></path>
+              </svg>
+              <span>Convert Audio to Text</span>
+            </div>
+          </template>
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <template x-if="processing">
+        <div style="margin-bottom: 2rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+            <span>Processing <span x-text="chunks.length"></span> chunks...</span>
+            <span x-text="progress + '%'"></span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="`width: ${progress}%`"></div>
+          </div>
+          
+          <!-- Current Processing Status -->
+          <div style="margin-top: 1rem; padding: 1rem; background: #f3f4f6; border-radius: 6px; border-left: 4px solid #3b82f6;">
+            <div style="font-weight: 500; color: #374151; margin-bottom: 0.5rem;">Current Status:</div>
+            <div style="font-size: 0.875rem; color: #6b7280;" x-text="currentStatus"></div>
+            
+            <template x-if="currentChunk >= 0 && chunks.length > 0">
+              <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+                Processing chunk <span x-text="currentChunk + 1"></span> of <span x-text="chunks.length"></span>
+                (<span x-text="formatTime(chunks[currentChunk]?.startTime || 0)"></span> - 
+                 <span x-text="formatTime(chunks[currentChunk]?.endTime || 0)"></span>)
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Chunk Progress -->
+      <template x-if="chunks.length > 0">
+        <div style="margin-bottom: 2rem;">
+          <h3 style="margin-bottom: 1rem;">Chunk Progress</h3>
+          <template x-for="(chunk, index) in chunks" :key="index">
+            <div class="chunk-item">
+              <span style="font-family: monospace; font-size: 0.875rem;">
+                Chunk <span x-text="index + 1"></span>
+              </span>
+              <span style="font-size: 0.875rem; color: #6b7280; margin-left: 1rem;">
+                <span x-text="formatTime(chunk.startTime)"></span> - <span x-text="formatTime(chunk.endTime)"></span>
+              </span>
+              <span style="font-size: 0.875rem; color: #6b7280; margin-left: 0.5rem;">
+                (<span x-text="(chunk.size / 1024 / 1024).toFixed(1)"></span> MB)
+              </span>
+              <div class="chunk-status" 
+                   :class="{
+                     'success': getChunkResult(index)?.success,
+                     'error': getChunkResult(index)?.error,
+                     'processing': !getChunkResult(index) && processing,
+                     'pending': !getChunkResult(index) && !processing
+                   }"></div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Final Results -->
+      <template x-if="status === 'completed' && finalText.arabic">
+        <div style="margin-top: 2rem;">
+          <div class="transcript-box arabic">
+            <h3 style="margin-bottom: 1rem; color: #374151;">
+              Complete Arabic Transcript:
+            </h3>
+            <p style="color: #4b5563; line-height: 1.6;" x-text="finalText.arabic"></p>
+          </div>
+
+          <div class="transcript-box">
+            <h3 style="margin-bottom: 1rem; color: #374151;">
+              Complete English Translation:
+            </h3>
+            <p style="color: #4b5563; line-height: 1.6;" x-text="finalText.english"></p>
+            
+            <div style="margin-top: 1rem;">
+              <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <button @click="translateAll" class="btn btn-secondary">
+                  <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m4 1h6m-7 4h7m-7 4h7m-7 4h7M3 21h18M3 17h18M3 13h18M3 9h18"></path>
+                  </svg>
+                  Translate
+                </button>
+
+                <button @click="downloadResults" class="btn btn-tertiary">
+                  <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  Download All Results
+                </button>
+              </div>
+              
+              <h4 style="margin-bottom: 0.75rem; color: #374151;">Download Individual Files:</h4>
+              <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                <button @click="downloadArabicText" class="btn btn-primary">
+                  <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  Arabic Text
+                </button>
+                
+                <button @click="downloadEnglishText" class="btn btn-primary">
+                  <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  English Text
+                </button>
+
+                <button @click="downloadEnglishAudio" class="btn btn-secondary">
+                  <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M15 11a3 3 0 11-6 0M13 15v6a1 1 0 11-2 0v-6M9 9a1 1 0 012 0v10a1 1 0 11-2 0V9z"></path>
+                  </svg>
+                  English Audio
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Usage Notes -->
+      <div style="margin-top: 2rem; padding: 1rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px;">
+        <h4 style="font-weight: 600; color: #92400e; margin-bottom: 0.5rem;">Large File Processing:</h4>
+        <ul style="font-size: 0.875rem; color: #92400e; margin: 0; padding-left: 1.25rem;">
+          <li>Audio files are automatically split into manageable chunks</li>
+          <li>Each chunk is processed separately and then combined</li>
+          <li>Larger files will take longer but can handle hours of audio</li>
+          <li>Processing time ≈ 0.1x audio length (10 minutes audio ≈ 1 minute processing)</li>
+          <li>Cost scales with file size: ~$0.006 per minute of audio</li>
+          <li><strong>NEW:</strong> Text-to-speech also uses smart chunking for long documents</li>
+          <li>Audio generation preserves natural speech flow at sentence boundaries</li>
+        </ul>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="converter.js"></script>
+</body>
+
+</html>
